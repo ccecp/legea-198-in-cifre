@@ -3,8 +3,8 @@ const SECTIONS=[{"title":"Duratele nivelurilor de învățământ","article":"Ar
 const app=document.getElementById("app");
 const search=document.getElementById("search");
 let view="theory",qIndex=0,score=0,answered={},flash=0,show=false;
-const ICONS=["1but.gif","9but.gif","8but.gif"];
-const icon=i=>"assets/"+ICONS[i%ICONS.length];
+const ICONS=["0but.gif","1but.gif","2but.gif","3but.gif","4but.gif","5but.gif","6but.gif","7but.gif","8but.gif","9but.gif","abut.gif","bbut.gif","cbut.gif","dbut.gif","ebut.gif","fbut.gif","gbut.gif","hbut.gif","ibut.gif","jbut.gif","kbut.gif","lbut.gif","mbut.gif","nbut.gif","obut.gif","pbut.gif","qbut.gif","rbut.gif","sbut.gif","tbut.gif","ubut.gif","vbut.gif","wbut.gif","xbut.gif","ybut.gif","Zbut.gif"];
+const icon=i=>ICONS[Math.abs(Number(i)||0)%ICONS.length];
 const esc=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
 function nums(text){return [...text.matchAll(/\d+(?:[.,]\d+)?/g)].map(m=>({v:m[0],i:m.index}));}
 function variants(fact){
@@ -37,11 +37,25 @@ function variants(fact){
   while(out.length<3) out.push(fact+" — valoare modificată");
   return out.slice(0,3);
 }
+function buildPedagogicPrompt(title,fact){
+  const t=(title+" "+fact).toLowerCase();
+  if(t.includes("frecvența redusă")||t.includes("frecvență redusă")) return "După câți ani peste vârsta clasei se aplică această regulă?";
+  if(t.includes("clasa pregătitoare")) return "Care este reperul de vârstă sau de dată care trebuie reținut?";
+  if(t.includes("durat")||t.includes("termen")||t.includes("mandat")||t.includes("parteneriat")) return "Care este durata sau termenul corect care trebuie reținut?";
+  if(t.includes("vârst")) return "Care este pragul de vârstă corect?";
+  if(t.includes("elev")||t.includes("copii")||t.includes("copil")||t.includes("preșcolar")||t.includes("antepreșcolar")||t.includes("efectiv")||t.includes("grupă")||t.includes("clasă")) return "Care este efectivul numeric corect care trebuie reținut?";
+  if(t.includes("%")||t.includes("procent")) return "Care este procentul corect?";
+  if(t.includes("lei")||t.includes("burs")||t.includes("voucher")||t.includes("amend")) return "Care este suma corectă?";
+  if(t.includes("ore")||t.includes("oră")||t.includes("minute")) return "Care este numărul corect de ore sau minute?";
+  if(t.includes("membri")||t.includes("cvorum")||t.includes("consiliul de administrație")) return "Care este numărul corect de membri sau cvorumul corect?";
+  if(t.includes("ani")) return "Care este numărul de ani care trebuie reținut?";
+  return "Care este valoarea numerică corectă care trebuie reținută?";
+}
 const QUESTIONS=[];
 SECTIONS.forEach((s,si)=>s.facts.forEach((fact,fi)=>{
   let opts=[fact,...variants(fact)];
   const rot=(si+fi)%4; opts=opts.slice(rot).concat(opts.slice(0,rot));
-  QUESTIONS.push({section:si,article:s.article,prompt:"Care variantă reproduce corect reperul numeric din "+s.article+"?",options:opts,correct:opts.indexOf(fact),explanation:fact});
+  QUESTIONS.push({section:si,article:s.article,title:s.title,prompt:buildPedagogicPrompt(s.title,fact),options:opts,correct:opts.indexOf(fact),explanation:fact});
 }));
 function setView(v){
   view=v;
@@ -58,7 +72,7 @@ function theory(){
 search.oninput=()=>view==="theory"&&theory();
 function quiz(){
   const q=QUESTIONS[qIndex],sec=SECTIONS[q.section],done=answered[qIndex];
-  app.innerHTML=`<div class="quiz-wrap"><div class="stats"><div class="stat"><strong>${qIndex+1}/${QUESTIONS.length}</strong>item</div><div class="stat"><strong>${score}</strong>corecte</div><div class="stat"><strong>${esc(sec.article)}</strong>sursa</div></div><div class="progress"><span style="width:${((qIndex+1)/QUESTIONS.length)*100}%"></span></div><div class="question"><div class="q-top"><img src="${icon(q.section)}" alt=""><div><div class="article">${esc(sec.article)}</div><h2>${esc(q.prompt)}</h2></div></div>${q.options.map((o,i)=>`<button class="option ${done!==undefined?(i===q.correct?"correct":(i===done&&done!==q.correct?"wrong":"")):""}" data-opt="${i}" ${done!==undefined?"disabled":""}>${"ABCD"[i]}. ${esc(o)}</button>`).join("")}<div id="fb">${done!==undefined?`<div class="feedback"><strong>${done===q.correct?"Corect.":"Răspuns corect:"}</strong><br>${esc(q.explanation)}</div>`:""}</div><div class="navq"><button data-prev ${qIndex===0?"disabled":""}>← Înapoi</button><button data-next>${qIndex===QUESTIONS.length-1?"Final":"Următorul →"}</button></div></div></div>`;
+  app.innerHTML=`<div class="quiz-wrap"><div class="stats"><div class="stat"><strong>${qIndex+1}/${QUESTIONS.length}</strong>item</div><div class="stat"><strong>${score}</strong>corecte</div><div class="stat"><strong>${QUESTIONS.length}</strong>repere numerice</div></div><div class="progress"><span style="width:${((qIndex+1)/QUESTIONS.length)*100}%"></span></div><div class="question"><div class="q-top"><img src="${icon(q.section)}" alt=""><div><div class="question-topic">${esc(q.title||sec.title)}</div><h2>${esc(q.prompt)}</h2></div></div>${q.options.map((o,i)=>`<button class="option ${done!==undefined?(i===q.correct?"correct":(i===done&&done!==q.correct?"wrong":"")):""}" data-opt="${i}" ${done!==undefined?"disabled":""}>${"ABCD"[i]}. ${esc(o)}</button>`).join("")}<div id="fb">${done!==undefined?`<div class="feedback"><strong>${done===q.correct?"Corect.":"Răspuns corect:"}</strong><br>${esc(q.explanation)}<div class="article-source">Sursa: ${esc(q.article)}</div></div>`:""}</div><div class="navq"><button data-prev ${qIndex===0?"disabled":""}>← Înapoi</button><button data-next>${qIndex===QUESTIONS.length-1?"Final":"Următorul →"}</button></div></div></div>`;
   document.querySelectorAll("[data-opt]").forEach(b=>b.onclick=()=>answer(Number(b.dataset.opt)));
   document.querySelector("[data-prev]").onclick=()=>{if(qIndex>0){qIndex--;quiz();}};
   document.querySelector("[data-next]").onclick=()=>{if(qIndex<QUESTIONS.length-1){qIndex++;quiz();}else finish();};
