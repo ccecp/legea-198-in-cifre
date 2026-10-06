@@ -8,54 +8,57 @@ const icon=i=>ICONS[Math.abs(Number(i)||0)%ICONS.length];
 const esc=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
 function nums(text){return [...text.matchAll(/\d+(?:[.,]\d+)?/g)].map(m=>({v:m[0],i:m.index}));}
 function variants(fact){
-  const found=nums(fact);
   const out=[];
-  const shifts=[1,-1,2,5,10];
-  for(const sh of shifts){
-    let used=false;
-    let s=fact.replace(/\d+(?:[.,]\d+)?/g,m=>{
-      if(used)return m;
-      used=true;
-      const n=Number(m.replace(",","."));
-      if(!Number.isFinite(n))return m;
-      const delta=n>=100?sh*10:sh;
-      return String(Math.max(0,n+delta)).replace(".",",");
-    });
-    if(s!==fact&&!out.includes(s))out.push(s);
+  const first=fact.match(/\d+(?:[.,]\d+)?/);
+  if(!first) return [fact+" — variantă modificată 1",fact+" — variantă modificată 2",fact+" — variantă modificată 3"];
+  const raw=first[0];
+  const n=Number(raw.replace(",","."));
+  const candidates=[];
+  if(n>=100000) candidates.push(Math.max(0,n-100000),n+100000,Math.max(0,n-250000));
+  else if(n>=1000) candidates.push(Math.max(0,n-1000),n+1000,Math.max(0,n-500));
+  else if(n>=100) candidates.push(Math.max(0,n-100),n+100,Math.max(0,n-50));
+  else if(n>=50) candidates.push(Math.max(0,n-10),n+10,Math.max(0,n-20));
+  else if(n>=20) candidates.push(n-5,n+5,n-10);
+  else if(n>=10) candidates.push(n-2,n+2,n-5);
+  else candidates.push(Math.max(0,n-1),n+1,n+2);
+  for(const v of candidates){
+    const shown=String(v).replace(".",",");
+    const s=fact.replace(raw,shown);
+    if(s!==fact&&!out.includes(s)) out.push(s);
   }
-  if(found.length>1){
-    const vals=found.map(x=>x.v);
-    let k=0;
-    const s=fact.replace(/\d+(?:[.,]\d+)?/g,m=>{
-      const n=Number(m.replace(",","."));
-      const delta=n>=100?10:1;
-      k++;
-      return String(Math.max(0,n+(k%2?delta:-delta))).replace(".",",");
-    });
-    if(s!==fact&&!out.includes(s))out.push(s);
-  }
-  while(out.length<3) out.push(fact+" — valoare modificată");
+  while(out.length<3) out.push(fact.replace(raw,String(Math.max(0,n+out.length+1))));
   return out.slice(0,3);
 }
-function buildPedagogicPrompt(title,fact){
-  const t=(title+" "+fact).toLowerCase();
-  if(t.includes("frecvența redusă")||t.includes("frecvență redusă")) return "După câți ani peste vârsta clasei se aplică această regulă?";
-  if(t.includes("clasa pregătitoare")) return "Care este reperul de vârstă sau de dată care trebuie reținut?";
-  if(t.includes("durat")||t.includes("termen")||t.includes("mandat")||t.includes("parteneriat")) return "Care este durata sau termenul corect care trebuie reținut?";
-  if(t.includes("vârst")) return "Care este pragul de vârstă corect?";
-  if(t.includes("elev")||t.includes("copii")||t.includes("copil")||t.includes("preșcolar")||t.includes("antepreșcolar")||t.includes("efectiv")||t.includes("grupă")||t.includes("clasă")) return "Care este efectivul numeric corect care trebuie reținut?";
-  if(t.includes("%")||t.includes("procent")) return "Care este procentul corect?";
-  if(t.includes("lei")||t.includes("burs")||t.includes("voucher")||t.includes("amend")) return "Care este suma corectă?";
-  if(t.includes("ore")||t.includes("oră")||t.includes("minute")) return "Care este numărul corect de ore sau minute?";
-  if(t.includes("membri")||t.includes("cvorum")||t.includes("consiliul de administrație")) return "Care este numărul corect de membri sau cvorumul corect?";
-  if(t.includes("ani")) return "Care este numărul de ani care trebuie reținut?";
-  return "Care este valoarea numerică corectă care trebuie reținută?";
+function buildExamPrompt(title,fi){
+  const topic=title.toLowerCase();
+  if(fi===0){
+    if(topic.includes("efective")) return "Care dintre următoarele variante prezintă corect efectivul prevăzut?";
+    if(topic.includes("durata")||topic.includes("duratele")) return "Care dintre următoarele variante prezintă corect durata prevăzută?";
+    if(topic.includes("personalitatea juridică")) return "Care este pragul numeric corect pentru dobândirea personalității juridice?";
+    if(topic.includes("frecvența redusă")) return "Care este depășirea de vârstă prevăzută pentru această situație?";
+    if(topic.includes("clasa pregătitoare")) return "Care este reperul de vârstă sau de dată corect?";
+    if(topic.includes("consiliul de administrație")) return "Care este configurația numerică corectă a consiliului de administrație?";
+    return "Care dintre următoarele variante conține reperul numeric corect?";
+  }
+  if(fi===1){
+    if(topic.includes("efective")) return "Un director verifică încadrarea unei formațiuni de studiu. Ce valori trebuie să aibă în vedere?";
+    if(topic.includes("digitalizare")) return "Pentru respectarea termenelor de digitalizare, care variantă este corectă?";
+    if(topic.includes("răspunderea disciplinară")) return "Într-o procedură disciplinară, care dintre următoarele repere numerice este corect?";
+    if(topic.includes("concursul și mandatul directorului")) return "Pentru concursul și exercitarea mandatului de director, care reper numeric este corect?";
+    return "În aplicarea acestei prevederi, ce reper numeric trebuie respectat?";
+  }
+  if(topic.includes("efective")) return "Care asociere dintre limitele numerice este corectă?";
+  if(topic.includes("programe")||topic.includes("finanțare")) return "Care asociere dintre sumă, procent sau termen este corectă?";
+  if(topic.includes("admitere")||topic.includes("bacalaureat")) return "Care dintre următoarele asocieri numerice este corectă?";
+  if(topic.includes("recompense")||topic.includes("pensionare")) return "Care dintre următoarele asocieri de valori este corectă?";
+  return "Care dintre următoarele asocieri numerice este corectă?";
 }
 const QUESTIONS=[];
+
 SECTIONS.forEach((s,si)=>s.facts.forEach((fact,fi)=>{
   let opts=[fact,...variants(fact)];
   const rot=(si+fi)%4; opts=opts.slice(rot).concat(opts.slice(0,rot));
-  QUESTIONS.push({section:si,article:s.article,title:s.title,prompt:buildPedagogicPrompt(s.title,fact),options:opts,correct:opts.indexOf(fact),explanation:fact});
+  QUESTIONS.push({section:si,article:s.article,title:s.title,prompt:buildExamPrompt(s.title,fi),options:opts,correct:opts.indexOf(fact),explanation:fact});
 }));
 function setView(v){
   view=v;
