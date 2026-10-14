@@ -3,48 +3,9 @@ const SECTIONS=[{"title":"Duratele nivelurilor de învățământ","article":"Ar
 const app=document.getElementById("app");
 const search=document.getElementById("search");
 let view="theory",qIndex=0,score=0,answered={},flash=0,show=false;
-let speechSection=null,speechPaused=false,speechContinuous=false;
 const ICONS=["0but.gif","1but.gif","2but.gif","3but.gif","4but.gif","5but.gif","6but.gif","7but.gif","8but.gif","9but.gif","abut.gif","bbut.gif","cbut.gif","dbut.gif","ebut.gif","fbut.gif","gbut.gif","hbut.gif","ibut.gif","jbut.gif","kbut.gif","lbut.gif","mbut.gif","nbut.gif","obut.gif","pbut.gif","qbut.gif","rbut.gif","sbut.gif","tbut.gif","ubut.gif","vbut.gif","wbut.gif","xbut.gif","ybut.gif","Zbut.gif"];
 const icon=i=>ICONS[Math.abs(Number(i)||0)%ICONS.length];
 const esc=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
-function sectionSpeechText(i){
-  const s=SECTIONS[i];
-  return [s.article+". "+s.title+".",...s.facts.map((f,n)=>"Punctul "+(n+1)+". "+f)].join(" ");
-}
-function stopSpeech(){
-  if(!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  speechSection=null;speechPaused=false;speechContinuous=false;
-}
-function pauseResumeSpeech(){
-  if(!("speechSynthesis" in window)) return;
-  if(window.speechSynthesis.speaking&&!window.speechSynthesis.paused){
-    window.speechSynthesis.pause();speechPaused=true;
-  }else if(window.speechSynthesis.paused){
-    window.speechSynthesis.resume();speechPaused=false;
-  }
-}
-function speakSection(i,continuous=false){
-  if(!("speechSynthesis" in window)){alert("Browserul nu suportă redarea audio a textului.");return;}
-  window.speechSynthesis.cancel();
-  speechSection=i;speechPaused=false;speechContinuous=continuous;
-  const u=new SpeechSynthesisUtterance(sectionSpeechText(i));
-  u.lang="ro-RO";
-  const voices=window.speechSynthesis.getVoices();
-  const ro=voices.find(v=>String(v.lang||"").toLowerCase().startsWith("ro"));
-  if(ro) u.voice=ro;
-  u.rate=0.95;u.pitch=1;
-  u.onend=()=>{
-    if(speechContinuous&&i<SECTIONS.length-1){
-      const next=i+1;
-      document.querySelector('[data-card="'+next+'"]')?.scrollIntoView({behavior:"smooth",block:"center"});
-      speakSection(next,true);
-    }else{
-      speechSection=null;speechPaused=false;speechContinuous=false;
-    }
-  };
-  window.speechSynthesis.speak(u);
-}
 function nums(text){return [...text.matchAll(/\d+(?:[.,]\d+)?/g)].map(m=>({v:m[0],i:m.index}));}
 function variants(fact){
   const out=[];
@@ -109,11 +70,7 @@ document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>setView(b.data
 function theory(){
   const term=(search.value||"").toLowerCase().trim();
   const items=SECTIONS.map((s,i)=>({s,i})).filter(({s})=>!term||(`${s.title} ${s.article} ${s.facts.join(" ")}`).toLowerCase().includes(term));
-  app.innerHTML=`<div class="stats"><div class="stat"><strong>${SECTIONS.length}</strong>aspecte numerice</div><div class="stat"><strong>${QUESTIONS.length}</strong>itemi</div><div class="stat"><strong>3</strong>itemi/aspect</div></div><div class="audio-help">🔊 Fiecare casetă poate fi ascultată în română. „Redare continuă” trece automat la caseta următoare.</div><div class="grid">${items.map(({s,i})=>`<article class="card" data-card="${i}"><div class="card-head"><img src="${icon(i)}" alt=""><div><div class="article">${esc(s.article)}</div><h2>${esc(s.title)}</h2></div></div><div class="audio-controls"><button data-speak="${i}">🔊 Ascultă</button><button data-continuous="${i}">▶ Redare continuă</button><button data-pause>⏯ Pauză/Continuă</button><button data-stop>⏹ Oprește</button></div><ol class="facts">${s.facts.map(f=>`<li>${esc(f)}</li>`).join("")}</ol></article>`).join("")}</div>`;
-  document.querySelectorAll("[data-speak]").forEach(b=>b.onclick=()=>speakSection(Number(b.dataset.speak),false));
-  document.querySelectorAll("[data-continuous]").forEach(b=>b.onclick=()=>speakSection(Number(b.dataset.continuous),true));
-  document.querySelectorAll("[data-pause]").forEach(b=>b.onclick=pauseResumeSpeech);
-  document.querySelectorAll("[data-stop]").forEach(b=>b.onclick=stopSpeech);
+  app.innerHTML=`<div class="stats"><div class="stat"><strong>${SECTIONS.length}</strong>aspecte numerice</div><div class="stat"><strong>${QUESTIONS.length}</strong>itemi</div><div class="stat"><strong>3</strong>itemi/aspect</div></div><div class="grid">${items.map(({s,i})=>`<article class="card"><div class="card-head"><img src="${icon(i)}" alt=""><div><div class="article">${esc(s.article)}</div><h2>${esc(s.title)}</h2></div></div><ol class="facts">${s.facts.map(f=>`<li>${esc(f)}</li>`).join("")}</ol></article>`).join("")}</div>`;
 }
 search.oninput=()=>view==="theory"&&theory();
 function quiz(){
