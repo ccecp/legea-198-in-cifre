@@ -3,6 +3,10 @@ const SECTIONS=[{"title":"Duratele nivelurilor de învățământ","article":"Ar
 const app=document.getElementById("app");
 const search=document.getElementById("search");
 let view="theory",qIndex=0,score=0,answered={},flash=0,show=false;
+let quizStartedAt=null,quizTimer=null,totalQuizTime=0;
+function elapsedTime(){return quizStartedAt===null?totalQuizTime:Math.max(0,performance.now()-quizStartedAt);}
+function formatTime(ms){const s=Math.floor(ms/1000);return [Math.floor(s/3600),Math.floor(s/60)%60,s%60].map(n=>String(n).padStart(2,"0")).join(":");}
+function updateQuizTime(){const label=document.getElementById("quizElapsed");if(label)label.textContent="Timp scurs: "+formatTime(elapsedTime());}
 const ICONS=["0but.gif","1but.gif","2but.gif","3but.gif","4but.gif","5but.gif","6but.gif","7but.gif","8but.gif","9but.gif","abut.gif","bbut.gif","cbut.gif","dbut.gif","ebut.gif","fbut.gif","gbut.gif","hbut.gif","ibut.gif","jbut.gif","kbut.gif","lbut.gif","mbut.gif","nbut.gif","obut.gif","pbut.gif","qbut.gif","rbut.gif","sbut.gif","tbut.gif","ubut.gif","vbut.gif","wbut.gif","xbut.gif","ybut.gif","Zbut.gif"];
 const icon=i=>ICONS[Math.abs(Number(i)||0)%ICONS.length];
 const esc=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
@@ -61,6 +65,7 @@ SECTIONS.forEach((s,si)=>s.facts.forEach((fact,fi)=>{
   QUESTIONS.push({section:si,article:s.article,title:s.title,prompt:buildExamPrompt(s.title,fi),options:opts,correct:opts.indexOf(fact),explanation:fact});
 }));
 function setView(v){
+  if(v==="quiz")resetQuiz();
   view=v;
   document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   search.style.display=v==="theory"?"block":"none";
@@ -76,6 +81,17 @@ search.oninput=()=>view==="theory"&&theory();
 function quiz(){
   const q=QUESTIONS[qIndex],sec=SECTIONS[q.section],done=answered[qIndex];
   app.innerHTML=`<div class="quiz-wrap"><div class="stats"><div class="stat"><strong>${qIndex+1}/${QUESTIONS.length}</strong>item</div><div class="stat"><strong>${score}</strong>corecte</div><div class="stat"><strong>${QUESTIONS.length}</strong>repere numerice</div></div><div class="progress"><span style="width:${((qIndex+1)/QUESTIONS.length)*100}%"></span></div><div class="question"><div class="q-top"><img src="${icon(q.section)}" alt=""><div><div class="question-topic">${esc(q.title||sec.title)}</div><h2>${esc(q.prompt)}</h2></div></div>${q.options.map((o,i)=>`<button class="option ${done!==undefined?(i===q.correct?"correct":(i===done&&done!==q.correct?"wrong":"")):""}" data-opt="${i}" ${done!==undefined?"disabled":""}>${"ABCD"[i]}. ${esc(o)}</button>`).join("")}<div id="fb">${done!==undefined?`<div class="feedback"><strong>${done===q.correct?"Corect.":"Răspuns corect:"}</strong><br>${esc(q.explanation)}<div class="article-source">Sursa: ${esc(q.article)}</div></div>`:""}</div><div class="navq"><button data-prev ${qIndex===0?"disabled":""}>← Înapoi</button><button data-next>${qIndex===QUESTIONS.length-1?"Final":"Următorul →"}</button></div></div></div>`;
+  const restart=document.createElement("button");
+  restart.type="button";
+  restart.className="reset";
+  restart.textContent="Reia de la început";
+  restart.onclick=()=>{resetQuiz();quiz();};
+  app.querySelector(".navq").appendChild(restart);
+  const timer=document.createElement("p");
+  timer.id="quizElapsed";
+  timer.className="quiz-time";
+  app.querySelector(".quiz-wrap").prepend(timer);
+  updateQuizTime();
   document.querySelectorAll("[data-opt]").forEach(b=>b.onclick=()=>answer(Number(b.dataset.opt)));
   document.querySelector("[data-prev]").onclick=()=>{if(qIndex>0){qIndex--;quiz();}};
   document.querySelector("[data-next]").onclick=()=>{if(qIndex<QUESTIONS.length-1){qIndex++;quiz();}else finish();};
@@ -84,13 +100,19 @@ function answer(i){
   if(answered[qIndex]!==undefined)return;
   answered[qIndex]=i;
   if(i===QUESTIONS[qIndex].correct)score++;
-  localStorage.setItem("198-cifre-progress",JSON.stringify({answered,score,qIndex}));
   quiz();
 }
+function resetQuiz(){
+  answered={};score=0;qIndex=0;totalQuizTime=0;
+  quizStartedAt=performance.now();
+  clearInterval(quizTimer);
+  quizTimer=setInterval(updateQuizTime,1000);
+}
 function finish(){
+  totalQuizTime=elapsedTime();quizStartedAt=null;clearInterval(quizTimer);quizTimer=null;
   const pct=Math.round(score/QUESTIONS.length*100);
-  app.innerHTML=`<div class="flash"><img src="${icon(pct)}" alt=""><h2>Rezultat</h2><div class="big-number">${score}/${QUESTIONS.length} · ${pct}%</div><p>Explicația corectă a fost afișată după fiecare răspuns.</p><button class="reset" id="reset">Reia de la început</button></div>`;
-  document.getElementById("reset").onclick=()=>{answered={};score=0;qIndex=0;localStorage.removeItem("198-cifre-progress");quiz();};
+  app.innerHTML=`<div class="flash"><img src="${icon(pct)}" alt=""><h2>Rezultat</h2><div class="big-number">${score}/${QUESTIONS.length} · ${pct}%</div><p class="quiz-time"><strong>Timp total: ${formatTime(totalQuizTime)}</strong></p><p>Explicația corectă a fost afișată după fiecare răspuns.</p><button class="reset" id="reset">Reia de la început</button></div>`;
+  document.getElementById("reset").onclick=()=>{resetQuiz();quiz();};
 }
 function review(){
   const s=SECTIONS[flash];
@@ -100,5 +122,5 @@ function review(){
   document.getElementById("nextF").onclick=()=>{flash=(flash+1)%SECTIONS.length;show=false;review();};
 }
 function render(){if(view==="theory")theory();else if(view==="quiz")quiz();else review();}
-try{const p=JSON.parse(localStorage.getItem("198-cifre-progress")||"null");if(p){answered=p.answered||{};score=p.score||0;qIndex=p.qIndex||0;}}catch(e){}
+try{localStorage.removeItem("198-cifre-progress");}catch(e){}
 render();
